@@ -2,10 +2,12 @@
 FastAPI Application Main Entry Point
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import logging
 import os
+import secrets
 
 try:
     from dotenv import load_dotenv
@@ -19,6 +21,23 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Security credentials
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+security = HTTPBasic()
+
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    """Verify username and password"""
+    correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
+    correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -45,7 +64,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
-# Health check endpoint
+# Health check endpoint (no auth needed)
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -57,10 +76,10 @@ async def health_check():
 
 
 @app.get("/")
-async def root():
-    """Root endpoint."""
+async def root(user: str = Depends(verify_credentials)):
+    """Root endpoint - requires authentication."""
     return {
-        "message": "Welcome to Traffic Violation Detection API",
+        "message": f"Welcome {user} to Traffic Violation Detection API",
         "version": "1.0.0",
         "docs": "/api/docs",
         "webcam_interface": "/webcam",
@@ -74,8 +93,8 @@ async def root():
 
 
 @app.get("/webcam")
-async def webcam_interface():
-    """Serve real-time webcam interface"""
+async def webcam_interface(user: str = Depends(verify_credentials)):
+    """Serve real-time webcam interface - requires authentication"""
     html_path = os.path.join(
         os.path.dirname(__file__),
         "../../frontend/html/index.html"
@@ -117,7 +136,9 @@ async def startup_event():
         init_db()
         logger.info("Database initialized successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize database: {str(e)}")
+        logger.warning(f"Database not available: {str(e)}")
+        logger.warning("Running in limited mode without database persistence")
+        logger.warning("To enable full features, start a PostgreSQL database on localhost:5432")
 
 
 @app.on_event("shutdown")
