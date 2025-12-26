@@ -332,7 +332,7 @@ Contributions are welcome! Please follow these steps:
 
 ## 📞 Contact & Support
 
-- **Email**: your.email@example.com
+- **Email**: umashankarpradhan138@gmail.com
 - **GitHub Issues**: [Report a bug](https://github.com/yourusername/traffic-violation-detection/issues)
 - **Discussions**: [Join our community](https://github.com/yourusername/traffic-violation-detection/discussions)
 
